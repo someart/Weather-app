@@ -36,3 +36,24 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
+# Dependencies
+node_modules/
+
+# Yarn
+yarn.lock
+
+# Expo
+.expo/
+
+# IDE Settings
+.idea/
+.vscode/
+
+# Logs
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Operating System Files
+.DS_Store
+Thumbs.db
