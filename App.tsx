@@ -10,7 +10,6 @@ interface WeatherResponse {
   name: string; // City name
   weather: Array<{ description: string }>; // Weather description (e.g., "clear sky")
 }
-
 const App = () => {
   const [city, setCity] = useState<string>('');
   const [latitude, setLatitude] = useState<number | null>(null);
