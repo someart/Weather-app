@@ -114,7 +114,7 @@ const App = () => {
 
   return (
     <ImageBackground 
-      source={require('./assets/images/weather.gif')} // Use local asset path
+      source={require('./assets/images/ll.gif')} // Use local asset path
       style={styles.container}
     >
 
