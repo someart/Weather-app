@@ -1,234 +1,174 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, FlatList, Animated } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, FlatList, TouchableOpacity, ImageBackground } from 'react-native';
 import axios from 'axios';
+import styles from './styles'; 
 
-// Define the WeatherResponse interface for TypeScript
-interface WeatherResponse {
-  main?: {
-    temp?: number; // Temperature in Celsius
-  };
-  name: string; // City name
-  weather: Array<{ description: string }>; // Weather description (e.g., "clear sky")
-}
+// Utility functions for formatting time and day
+const formatTime = (date: Date) => {
+  let hours = date.getHours();
+  let minutes = date.getMinutes();
+  if (hours < 10) hours = `0${hours}` as any as number;
+  if (minutes < 10) minutes = `0${minutes}` as any as number;
+  return `${hours}:${minutes}`;
+};
+
+const formatDay = (date: Date) => {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  return days[date.getDay()];
+};
+
+// Main App Component
 const App = () => {
   const [city, setCity] = useState<string>('');
-  const [latitude, setLatitude] = useState<number | null>(null);
-  const [longitude, setLongitude] = useState<number | null>(null);
-  const [weather, setWeather] = useState<WeatherResponse | null>(null);
+  const [weather, setWeather] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
-  const [fadeAnim] = useState(new Animated.Value(0)); // Animation state for fading elements
-  const [slideAnim] = useState(new Animated.Value(-200)); // Animation state for sliding suggestions
-  const [pulseAnim] = useState(new Animated.Value(1)); // Animation state for pulsing button
+  const [suggestions, setSuggestions] = useState<any[]>([]); // New state for suggestions
 
-  const openCageApiKey = '3b92ecf1996049f3966ddd08d1903f17'; // Your OpenCage API Key
-  const openWeatherMapApiKey = '6a256601c607904a537f72b8e8b7a1f5'; // Your OpenWeatherMap API Key
+  // Current time and day
+  const [currentTime, setCurrentTime] = useState<string>(formatTime(new Date()));
+  const [currentDay, setCurrentDay] = useState<string>(formatDay(new Date()));
 
-  const openWeatherMapUrl = latitude && longitude 
-    ? `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${openWeatherMapApiKey}&units=metric` 
-    : ''; // Only set URL if coordinates are available
+  useEffect(() => {
+    // Update time every minute
+    const interval = setInterval(() => {
+      const now = new Date();
+      setCurrentTime(formatTime(now));
+      setCurrentDay(formatDay(now));
+    }, 60000);
 
-  // Fetch Weather Data from OpenWeatherMap
-  const fetchWeather = async () => {
-    if (!latitude || !longitude) {
-      setError('Please select a city first.');
-      return;
-    }
+    return () => clearInterval(interval); // Cleanup interval on component unmount
+  }, []);
+
+  // Fetch Weather Data using OpenCage API for geocoding and OpenWeatherMap API for weather
+  const fetchWeather = async (cityName: string) => {
+    const openCageApiKey = '3b92ecf1996049f3966ddd08d1903f17'; // Your OpenCage API Key
+    const openWeatherMapApiKey = '6a256601c607904a537f72b8e8b7a1f5'; // Your OpenWeatherMap API Key
 
     setLoading(true);
     setError(null);
 
     try {
-      const response = await axios.get(openWeatherMapUrl);
+      // Geocoding with OpenCage API
+      const geocodeResponse = await axios.get(
+        `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(cityName)}&key=${openCageApiKey}`
+      );
 
-      if (response.data && response.data.main && response.data.weather) {
-        setWeather(response.data);
-      } else {
-        setError('Weather data is unavailable. Please try again.');
+      if (geocodeResponse.data.results.length === 0) {
+        throw new Error('City not found');
       }
-    } catch (err) {
-      setError('Failed to fetch weather data. Please try again.');
-    }
 
+      const { lat, lng } = geocodeResponse.data.results[0].geometry;
+
+      // Fetch weather using OpenWeatherMap API
+      const weatherResponse = await axios.get(
+        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&units=metric&appid=${openWeatherMapApiKey}`
+      );
+
+      setWeather(weatherResponse.data);
+    } catch (err) {
+      setError('Unable to fetch weather for the entered city. Please try again.');
+      setWeather(null);
+    }
     setLoading(false);
-
-    // Fade in the weather data when it's available
-    Animated.timing(fadeAnim, {
-      toValue: 1,  // Target value for the opacity
-      duration: 500,  // Animation duration (milliseconds)
-      useNativeDriver: true,
-    }).start();
   };
 
-  // Fetch City Suggestions based on user input
-  const fetchCitySuggestions = async (input: string) => {
-    if (input.length < 3) return;
+  // Fetch city suggestions from OpenCage API based on user input
+  const fetchSuggestions = async (input: string) => {
+    const openCageApiKey = '3b92ecf1996049f3966ddd08d1903f17'; // Your OpenCage API Key
 
     try {
-      const response = await axios.get(`https://api.opencagedata.com/geocode/v1/json?q=${input}&key=${openCageApiKey}&no_annotations=1`);
-      const suggestions = response.data.results.map((item: { formatted: string }) => item.formatted);
-      setCitySuggestions(suggestions);
-
-      // Slide in city suggestions when data is available
-      Animated.timing(slideAnim, {
-        toValue: 0,  // Target value for sliding to 0
-        duration: 500,
-        useNativeDriver: true,
-      }).start();
+      const response = await axios.get(
+        `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(input)}&key=${openCageApiKey}`
+      );
+      setSuggestions(response.data.results);
     } catch (err) {
-      setCitySuggestions([]);
+      setSuggestions([]);
     }
   };
 
-  // Handle city selection from suggestions
-  const handleCitySelection = (selectedCity: string) => {
-    setCity(selectedCity);
-    setCitySuggestions([]);
-    fetchCoordinates(selectedCity);
-  };
-
-  // Fetch coordinates (latitude and longitude) for the selected city
-  const fetchCoordinates = async (selectedCity: string) => {
-    try {
-      const response = await axios.get(`https://api.opencagedata.com/geocode/v1/json?q=${selectedCity}&key=${openCageApiKey}`);
-      const { lat, lng } = response.data.results[0]?.geometry ?? {};
-      if (lat && lng) {
-        setLatitude(lat);
-        setLongitude(lng);
-      } else {
-        setError('Coordinates for the selected city are unavailable.');
-      }
-    } catch (err) {
-      setError('Failed to fetch coordinates. Please try again.');
+  // Handle input change for city and fetch suggestions
+  const handleCityChange = (text: string) => {
+    setCity(text);
+    if (text.length > 2) { // Fetch suggestions after 2 or more characters
+      fetchSuggestions(text);
+    } else {
+      setSuggestions([]);
     }
   };
 
-  // Pulsing animation for the "Get Weather" button
-  const handleButtonPressIn = () => {
-    Animated.sequence([
-      Animated.timing(pulseAnim, {
-        toValue: 1.1, // Slightly increase the size
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(pulseAnim, {
-        toValue: 1, // Return to normal size
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start();
+  // Handle city suggestion click
+  const handleSuggestionSelect = (city: string) => {
+    setCity(city);
+    fetchWeather(city); // Fetch weather for the selected city
+    setSuggestions([]); // Clear suggestions after selection
   };
 
-  useEffect(() => {
-    if (weather) {
-      Animated.timing(fadeAnim, {
-        toValue: 1,  // Make it fully visible
-        duration: 500,
-        useNativeDriver: true,
-      }).start();
+  const handleSearch = () => {
+    if (city.trim()) {
+      fetchWeather(city.trim());
+    } else {
+      setError('Please enter a city name.');
     }
-  }, [weather]);
+  };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Weather App</Text>
-      
-      <TextInput
-        style={styles.input}
-        placeholder="Enter city"
-        value={city}
-        onChangeText={(text) => {
-          setCity(text);
-          fetchCitySuggestions(text);
-        }}
-      />
-      
-      {citySuggestions.length > 0 && (
-        <Animated.View style={[styles.suggestionsContainer, { transform: [{ translateY: slideAnim }] }]}>
-          <FlatList
-            data={citySuggestions}
-            renderItem={({ item }: { item: string }) => (
-              <View style={styles.suggestionItem}>
-                <Text style={styles.suggestionText} onPress={() => handleCitySelection(item)}>
-                  {item}
-                </Text>
-              </View>
-            )}
-            keyExtractor={(item, index) => index.toString()}
-          />
-        </Animated.View>
-      )}
-      
-      <Animated.View>
-        <Button 
-          title="Get Weather" 
-          onPress={fetchWeather} 
+    <ImageBackground 
+      source={require('./assets/images/weather.gif')} // Use local asset path
+      style={styles.container}
+    >
+
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Search city..."
+          value={city}
+          onChangeText={handleCityChange}
         />
-      </Animated.View>
+        <Button title="Search" onPress={handleSearch} />
+      </View>
 
-      {loading && <Animated.Text style={[styles.loadingText, { opacity: fadeAnim }]}>Loading...</Animated.Text>}
-      {error && <Animated.Text style={[styles.error, { opacity: fadeAnim }]}>{error}</Animated.Text>}
+      {/* Display Error */}
+      {error && <Text style={styles.error}>{error}</Text>}
 
-      {weather && (
-        <Animated.View style={[styles.weatherInfo, { opacity: fadeAnim }]}>
-          <Text style={styles.weatherText}>Current temperature in {city}:</Text>
-          <Text style={styles.weatherText}>
-            {weather.main?.temp !== undefined ? weather.main.temp : 'N/A'}°C
-          </Text>
-          <Text style={styles.weatherText}>Weather: {weather.weather[0]?.description || 'N/A'}</Text>
-        </Animated.View>
+      {/* Display Suggestions */}
+      {suggestions.length > 0 && (
+        <FlatList
+          data={suggestions}
+          keyExtractor={(item, index) => index.toString()}
+          renderItem={({ item }) => (
+            <TouchableOpacity onPress={() => handleSuggestionSelect(item.formatted)}>
+              <Text style={styles.suggestionText}>{item.formatted}</Text>
+            </TouchableOpacity>
+          )}
+        />
       )}
-    </View>
+
+      {/* Display Current Time and Day */}
+      <View style={styles.currentInfoContainer}>
+        <Text style={styles.currentDay}>{currentDay}</Text>
+        <Text style={styles.currentTime}>{currentTime}</Text>
+      </View>
+
+      {/* Display Weather Info */}
+      {loading ? (
+        <Text>Loading...</Text>
+      ) : (
+        weather && (
+          <View style={styles.weatherContainer}>
+            <Text style={styles.cityName}>{weather.name}</Text>
+            <Text style={styles.temperature}>{Math.round(weather.main.temp)}°C</Text>
+            <Text style={styles.weatherType}>{weather.weather[0].main}</Text>
+            <View style={styles.extraInfo}>
+              <Text style={styles.infoText}>Humidity: {weather.main.humidity}%</Text>
+              <Text style={styles.infoText}>Wind: {Math.round(weather.wind.speed)} km/h</Text>
+            </View>
+          </View>
+        )
+      )}
+    </ImageBackground>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  input: {
-    borderWidth: 1,
-    padding: 8,
-    margin: 10,
-    width: 200,
-  },
-  suggestionsContainer: {
-    maxHeight: 200, // Ensure the suggestion list is scrollable
-    width: 200,
-    borderWidth: 1,
-    borderRadius: 5,
-    marginTop: 10,
-    backgroundColor: '#f1f1f1',
-  },
-  suggestionItem: {
-    padding: 10,
-    borderBottomWidth: 1,
-  },
-  suggestionText: {
-    fontSize: 16,
-  },
-  weatherInfo: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  weatherText: {
-    fontSize: 18,
-  },
-  loadingText: {
-    fontSize: 18,
-    color: '#555',
-  },
-  error: {
-    color: 'red',
-  },
-});
 
 export default App;
