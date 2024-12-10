@@ -3,7 +3,7 @@ import { View, Text, TextInput, Button, StyleSheet, FlatList, TouchableOpacity, 
 import axios from 'axios';
 import styles from './styles'; 
 
-// Utility functions for formatting time and day
+// time and day
 const formatTime = (date: Date) => {
   let hours = date.getHours();
   let minutes = date.getMinutes();
@@ -17,7 +17,7 @@ const formatDay = (date: Date) => {
   return days[date.getDay()];
 };
 
-// Main App Component
+// App Component
 const App = () => {
   const [city, setCity] = useState<string>('');
   const [weather, setWeather] = useState<any | null>(null);
@@ -30,17 +30,17 @@ const App = () => {
   const [currentDay, setCurrentDay] = useState<string>(formatDay(new Date()));
 
   useEffect(() => {
-    // Update time every minute
+    //time update  minute
     const interval = setInterval(() => {
       const now = new Date();
       setCurrentTime(formatTime(now));
       setCurrentDay(formatDay(now));
     }, 60000);
 
-    return () => clearInterval(interval); // Cleanup interval on component unmount
+    return () => clearInterval(interval); 
   }, []);
 
-  // Fetch Weather Data using OpenCage API for geocoding and OpenWeatherMap API for weather
+  //OpenCage API lel geocoding and OpenWeatherMap API for weather
   const fetchWeather = async (cityName: string) => {
     const openCageApiKey = '3b92ecf1996049f3966ddd08d1903f17'; // Your OpenCage API Key
     const openWeatherMapApiKey = '6a256601c607904a537f72b8e8b7a1f5'; // Your OpenWeatherMap API Key
@@ -49,7 +49,6 @@ const App = () => {
     setError(null);
 
     try {
-      // Geocoding with OpenCage API
       const geocodeResponse = await axios.get(
         `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(cityName)}&key=${openCageApiKey}`
       );
@@ -60,7 +59,6 @@ const App = () => {
 
       const { lat, lng } = geocodeResponse.data.results[0].geometry;
 
-      // Fetch weather using OpenWeatherMap API
       const weatherResponse = await axios.get(
         `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&units=metric&appid=${openWeatherMapApiKey}`
       );
@@ -73,7 +71,7 @@ const App = () => {
     setLoading(false);
   };
 
-  // Fetch city suggestions from OpenCage API based on user input
+  //  city suggestions 
   const fetchSuggestions = async (input: string) => {
     const openCageApiKey = '3b92ecf1996049f3966ddd08d1903f17'; // Your OpenCage API Key
 
@@ -87,21 +85,20 @@ const App = () => {
     }
   };
 
-  // Handle input change for city and fetch suggestions
   const handleCityChange = (text: string) => {
     setCity(text);
-    if (text.length > 2) { // Fetch suggestions after 2 or more characters
+    if (text.length > 2) { //  suggestions after 2 or more characters
       fetchSuggestions(text);
     } else {
       setSuggestions([]);
     }
   };
 
-  // Handle city suggestion click
+  // city suggestion click
   const handleSuggestionSelect = (city: string) => {
     setCity(city);
-    fetchWeather(city); // Fetch weather for the selected city
-    setSuggestions([]); // Clear suggestions after selection
+    fetchWeather(city); 
+    setSuggestions([]); 
   };
 
   const handleSearch = () => {
@@ -114,7 +111,7 @@ const App = () => {
 
   return (
     <ImageBackground 
-      source={require('./assets/images/ll.gif')} // Use local asset path
+      source={require('./assets/images/ll.gif')}
       style={styles.container}
     >
 
